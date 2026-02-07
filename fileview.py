@@ -17,6 +17,7 @@ import json
 import mimetypes
 import os
 import socket
+import subprocess
 import sys
 import urllib.parse
 from pathlib import Path
@@ -343,14 +344,29 @@ def get_local_ip():
         return "127.0.0.1"
 
 
+def get_tailscale_ip():
+    try:
+        result = subprocess.run(['tailscale', 'ip', '-4'], capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except Exception:
+        pass
+    return None
+
+
 def main():
     ip = get_local_ip()
+    ts_ip = get_tailscale_ip()
     server = http.server.HTTPServer(('0.0.0.0', PORT), Handler)
     print(f"\n  FileView is running!\n")
-    print(f"  Local:   http://localhost:{PORT}")
-    print(f"  Network: http://{ip}:{PORT}")
-    print(f"  Root:    {ROOT}\n")
-    print(f"  Open the Network URL on your phone (same WiFi).")
+    print(f"  Local:     http://localhost:{PORT}")
+    print(f"  Network:   http://{ip}:{PORT}")
+    if ts_ip:
+        print(f"  Tailscale: http://{ts_ip}:{PORT}")
+    print(f"  Root:      {ROOT}\n")
+    print(f"  Open the Network URL on your phone (same WiFi)")
+    if ts_ip:
+        print(f"  or the Tailscale URL from anywhere.")
     print(f"  Press Ctrl+C to stop.\n")
     try:
         server.serve_forever()
