@@ -329,8 +329,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     self.wfile.write(chunk)
         except PermissionError:
             self.send_error(403, "Permission Denied")
+        except (ConnectionResetError, BrokenPipeError):
+            pass  # client disconnected mid-transfer
         except Exception as e:
             self.send_error(500, str(e))
+
+
+class Server(http.server.HTTPServer):
+    def handle_error(self, request, client_address):
+        exc = sys.exc_info()[1]
+        if isinstance(exc, (ConnectionResetError, BrokenPipeError)):
+            return  # client disconnected, nothing to do
+        super().handle_error(request, client_address)
 
 
 def get_local_ip():
@@ -357,7 +367,7 @@ def get_tailscale_ip():
 def main():
     ip = get_local_ip()
     ts_ip = get_tailscale_ip()
-    server = http.server.HTTPServer(('0.0.0.0', PORT), Handler)
+    server = Server(('0.0.0.0', PORT), Handler)
     print(f"\n  FileView is running!\n")
     print(f"  Local:     http://localhost:{PORT}")
     print(f"  Network:   http://{ip}:{PORT}")
